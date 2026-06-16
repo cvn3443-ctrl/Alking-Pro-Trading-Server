@@ -9,8 +9,8 @@ class Config:
     QUOTEX_URL = "https://qxbroker.com"
     
     # إعدادات التداول
-    MAX_CONSECUTIVE_WINS = 5      # عدد صفقات متتالية ربح يوقف
-    MAX_CONSECUTIVE_LOSSES = 2    # عدد صفقات متتالية خسارة يوقف
+    MAX_CONSECUTIVE_WINS = 5
+    MAX_CONSECUTIVE_LOSSES = 2
     
     # إعدادات التحليل
     TIMEFRAMES = ["1m", "5m", "15m", "1h"]
