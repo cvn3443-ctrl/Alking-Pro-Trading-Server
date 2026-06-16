@@ -7,13 +7,13 @@ import logging
 import time
 from contextlib import asynccontextmanager
 
-from quotex_bot import QuotexBot
+from quotex_api import QuotexAPI
 from config import config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-bot = QuotexBot()
+bot = QuotexAPI()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
