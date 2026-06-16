@@ -1,18 +1,16 @@
-import numpy as np
-import pandas as pd
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 class TradingStrategies:
-    """أربع استراتيجيات تحليل متزامنة"""
+    """أربع استراتيجيات تحليل متزامنة - بدون pandas أو numpy"""
     
     @staticmethod
     def sma_crossover(close_prices: List[float]) -> Dict:
-        """الاستراتيجية 1: تقاطع المتوسطات المتحركة (SMA 9 و SMA 21)"""
+        """الاستراتيجية 1: تقاطع المتوسطات المتحركة SMA 9 و SMA 21"""
         if len(close_prices) < 21:
             return {"signal": 0, "confidence": 0, "name": "SMA Crossover"}
         
-        sma_9 = np.mean(close_prices[-9:])
-        sma_21 = np.mean(close_prices[-21:])
+        sma_9 = sum(close_prices[-9:]) / 9
+        sma_21 = sum(close_prices[-21:]) / 21
         
         if sma_9 > sma_21:
             return {"signal": 1, "confidence": 0.75, "name": "SMA Crossover"}
@@ -22,19 +20,25 @@ class TradingStrategies:
     
     @staticmethod
     def rsi_analysis(close_prices: List[float], period: int = 14) -> Dict:
-        """الاستراتيجية 2: تحليل مؤشر القوة النسبية RSI"""
+        """الاستراتيجية 2: مؤشر القوة النسبية RSI"""
         if len(close_prices) < period + 1:
             return {"signal": 0, "confidence": 0, "name": "RSI"}
         
-        deltas = np.diff(close_prices[-period-1:])
-        gains = deltas[deltas > 0].sum() / period
-        losses = abs(deltas[deltas < 0].sum()) / period
+        gains = []
+        losses = []
         
-        if losses == 0:
-            rsi = 100
-        else:
-            rs = gains / losses
-            rsi = 100 - (100 / (1 + rs))
+        for i in range(-period, 0):
+            diff = close_prices[i] - close_prices[i-1]
+            if diff > 0:
+                gains.append(diff)
+            else:
+                losses.append(abs(diff))
+        
+        avg_gain = sum(gains) / period if gains else 0
+        avg_loss = sum(losses) / period if losses else 1
+        
+        rs = avg_gain / avg_loss if avg_loss != 0 else 0
+        rsi = 100 - (100 / (1 + rs))
         
         if rsi < 30:
             return {"signal": 1, "confidence": 0.8, "name": "RSI"}
@@ -48,9 +52,12 @@ class TradingStrategies:
         if len(close_prices) < period:
             return {"signal": 0, "confidence": 0, "name": "Bollinger Bands"}
         
-        prices = np.array(close_prices[-period:])
-        sma = np.mean(prices)
-        std = np.std(prices)
+        prices = close_prices[-period:]
+        sma = sum(prices) / period
+        
+        variance = sum((x - sma) ** 2 for x in prices) / period
+        std = variance ** 0.5
+        
         upper_band = sma + (std * 2)
         lower_band = sma - (std * 2)
         current_price = close_prices[-1]
@@ -67,7 +74,7 @@ class TradingStrategies:
         if len(volumes) < 10 or len(close_prices) < 2:
             return {"signal": 0, "confidence": 0, "name": "Volume Spike"}
         
-        avg_volume = np.mean(volumes[-10:])
+        avg_volume = sum(volumes[-10:]) / 10
         current_volume = volumes[-1]
         price_change = close_prices[-1] - close_prices[-2]
         
@@ -78,12 +85,11 @@ class TradingStrategies:
         return {"signal": 0, "confidence": 0.1, "name": "Volume Spike"}
     
     def analyze_all(self, close_prices: List[float], volumes: List[float]) -> Dict:
-        """تحليل جميع الاستراتيجيات الأربع معاً"""
+        """تحليل جميع الاستراتيجيات الأربع معاً وإعطاء إشارة نهائية"""
         results = []
         total_confidence = 0
         total_signal = 0
         
-        # تنفيذ الاستراتيجيات الأربع
         strategies = [
             self.sma_crossover(close_prices),
             self.rsi_analysis(close_prices),
@@ -96,20 +102,18 @@ class TradingStrategies:
             total_signal += strategy["signal"] * strategy["confidence"]
             total_confidence += strategy["confidence"]
         
-        # الإشارة النهائية (متوسط مرجح)
         final_signal = total_signal / total_confidence if total_confidence > 0 else 0
         
-        # تحديد الاتجاه
         if final_signal > 0.3:
-            action = "CALL"  # شراء (ارتفاع)
+            action = "CALL"
         elif final_signal < -0.3:
-            action = "PUT"   # بيع (انخفاض)
+            action = "PUT"
         else:
-            action = "HOLD"  # انتظار
+            action = "HOLD"
         
         return {
             "action": action,
-            "final_signal": float(final_signal),
+            "final_signal": round(final_signal, 4),
             "strategies_results": results,
-            "strength": abs(final_signal)
-  }
+            "strength": round(abs(final_signal), 4)
+        }
