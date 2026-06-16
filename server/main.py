@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import List, Dict, Optional
 import logging
 import time
@@ -44,7 +44,7 @@ app.add_middleware(
 
 # ============== نماذج البيانات ==============
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 class TradeRequest(BaseModel):
