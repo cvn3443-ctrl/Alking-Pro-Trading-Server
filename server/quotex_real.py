@@ -9,8 +9,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class QuotexReal:
-    """اتصال حقيقي بمنصة Quotex عبر API"""
-    
     def __init__(self):
         self.session = requests.Session()
         self.is_logged_in = False
@@ -32,44 +30,59 @@ class QuotexReal:
     def login(self, email: str, password: str) -> Dict:
         try:
             logger.info(f"محاولة تسجيل الدخول: {email}")
-            # نقطة نهاية تسجيل الدخول الحقيقية
+            
+            # طباعة الطلب للتحقق
+            logger.info("📤 Sending login request to Quotex...")
+            
             response = self.session.post(
                 "https://qxbroker.com/api/v1/login",
                 json={"email": email, "password": password, "remember": True},
                 timeout=30
             )
             
+            # طباعة الاستجابة كاملة
+            logger.info(f"📥 Status code: {response.status_code}")
+            logger.info(f"📥 Response headers: {dict(response.headers)}")
+            logger.info(f"📥 Response body: {response.text[:500]}")
+            
             if response.status_code == 200:
-                data = response.json()
-                if data.get('token'):
-                    self.token = data['token']
-                    self.is_logged_in = True
-                    self.email = email
-                    self.session.headers.update({'Authorization': f'Bearer {self.token}'})
+                try:
+                    data = response.json()
+                    logger.info(f"📥 Parsed data: {data}")
                     
-                    # جلب العملات والرصيد
-                    self._fetch_symbols()
-                    self._fetch_balance()
-                    
-                    return {
-                        "success": True,
-                        "message": "✅ تم تسجيل الدخول بنجاح",
-                        "symbols": self.current_symbols[:20],
-                        "account_type": "real",
-                        "balance": self.balance
-                    }
-                else:
-                    return {"success": False, "message": "❌ البريد أو كلمة السر غير صحيحة"}
+                    if data.get('token'):
+                        self.token = data['token']
+                        self.is_logged_in = True
+                        self.email = email
+                        self.session.headers.update({'Authorization': f'Bearer {self.token}'})
+                        
+                        self._fetch_symbols()
+                        self._fetch_balance()
+                        
+                        return {
+                            "success": True,
+                            "message": "✅ تم تسجيل الدخول بنجاح",
+                            "symbols": self.current_symbols[:20],
+                            "account_type": "real",
+                            "balance": self.balance
+                        }
+                    else:
+                        return {"success": False, "message": "❌ البريد أو كلمة السر غير صحيحة"}
+                except Exception as e:
+                    logger.error(f"❌ Failed to parse JSON: {e}")
+                    return {"success": False, "message": f"❌ خطأ في قراءة الرد: {str(e)}"}
             else:
                 return {"success": False, "message": f"❌ خطأ في السيرفر: {response.status_code}"}
                 
         except Exception as e:
-            logger.error(f"Login error: {e}")
+            logger.error(f"❌ Login error: {e}")
             return {"success": False, "message": f"❌ خطأ تقني: {str(e)}"}
     
     def _fetch_symbols(self):
         try:
+            logger.info("📤 Fetching symbols from Quotex...")
             response = self.session.get("https://qxbroker.com/api/v1/assets", timeout=15)
+            
             if response.status_code == 200:
                 data = response.json()
                 symbols = []
@@ -84,6 +97,7 @@ class QuotexReal:
                     logger.info(f"✅ تم جلب {len(self.current_symbols)} عملة")
                     return
             self.current_symbols = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "EURGBP", "XAUUSD"]
+            logger.info("⚠️ استخدام قائمة العملات الافتراضية")
         except Exception as e:
             logger.error(f"Error fetching symbols: {e}")
             self.current_symbols = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD"]
@@ -94,6 +108,7 @@ class QuotexReal:
             if response.status_code == 200:
                 data = response.json()
                 self.balance = float(data.get('balance', 0))
+                logger.info(f"✅ Balance: {self.balance}")
         except Exception as e:
             logger.error(f"Error fetching balance: {e}")
     
@@ -115,7 +130,6 @@ class QuotexReal:
                             volumes.append(float(candle.get('volume', 0)))
                 if close_prices:
                     return close_prices, volumes
-            # بيانات احتياطية
             import random
             base = 1.1000 if "EUR" in symbol else 1.3000 if "GBP" in symbol else 150.00
             close_prices = [base + random.uniform(-0.01, 0.01) for _ in range(limit)]
@@ -134,13 +148,12 @@ class QuotexReal:
             return {"success": False, "message": "⏸ النظام متوقف مؤقتاً"}
         
         try:
-            # تنفيذ صفقة حقيقية
             response = self.session.post(
                 "https://qxbroker.com/api/v1/trade",
                 json={
                     "symbol": symbol,
                     "amount": amount,
-                    "action": action,  # "CALL" أو "PUT"
+                    "action": action,
                     "is_demo": is_demo,
                     "expiry": 60,
                     "type": "digital"
