@@ -1,8 +1,6 @@
 from typing import Dict, List
 
 class TradingStrategies:
-    """أربع استراتيجيات تحليل متزامنة"""
-    
     @staticmethod
     def sma_crossover(close_prices: List[float]) -> Dict:
         if len(close_prices) < 21:
@@ -19,14 +17,10 @@ class TradingStrategies:
     def rsi_analysis(close_prices: List[float], period: int = 14) -> Dict:
         if len(close_prices) < period + 1:
             return {"signal": 0, "confidence": 0, "name": "RSI"}
-        gains = []
-        losses = []
+        gains, losses = [], []
         for i in range(-period, 0):
             diff = close_prices[i] - close_prices[i-1]
-            if diff > 0:
-                gains.append(diff)
-            else:
-                losses.append(abs(diff))
+            (gains if diff > 0 else losses).append(abs(diff))
         avg_gain = sum(gains) / period if gains else 0
         avg_loss = sum(losses) / period if losses else 1
         rs = avg_gain / avg_loss if avg_loss != 0 else 0
@@ -45,12 +39,12 @@ class TradingStrategies:
         sma = sum(prices) / period
         variance = sum((x - sma) ** 2 for x in prices) / period
         std = variance ** 0.5
-        upper_band = sma + (std * 2)
-        lower_band = sma - (std * 2)
-        current_price = close_prices[-1]
-        if current_price <= lower_band:
+        upper = sma + std * 2
+        lower = sma - std * 2
+        current = close_prices[-1]
+        if current <= lower:
             return {"signal": 1, "confidence": 0.7, "name": "Bollinger Bands"}
-        elif current_price >= upper_band:
+        elif current >= upper:
             return {"signal": -1, "confidence": 0.7, "name": "Bollinger Bands"}
         return {"signal": 0, "confidence": 0.2, "name": "Bollinger Bands"}
     
@@ -58,39 +52,28 @@ class TradingStrategies:
     def volume_spike(volumes: List[float], close_prices: List[float]) -> Dict:
         if len(volumes) < 10 or len(close_prices) < 2:
             return {"signal": 0, "confidence": 0, "name": "Volume Spike"}
-        avg_volume = sum(volumes[-10:]) / 10
-        current_volume = volumes[-1]
-        price_change = close_prices[-1] - close_prices[-2]
-        if current_volume > avg_volume * 1.5 and price_change > 0:
+        avg = sum(volumes[-10:]) / 10
+        current = volumes[-1]
+        change = close_prices[-1] - close_prices[-2]
+        if current > avg * 1.5 and change > 0:
             return {"signal": 1, "confidence": 0.65, "name": "Volume Spike"}
-        elif current_volume > avg_volume * 1.5 and price_change < 0:
+        elif current > avg * 1.5 and change < 0:
             return {"signal": -1, "confidence": 0.65, "name": "Volume Spike"}
         return {"signal": 0, "confidence": 0.1, "name": "Volume Spike"}
     
     def analyze_all(self, close_prices: List[float], volumes: List[float]) -> Dict:
         results = []
-        total_confidence = 0
-        total_signal = 0
+        total_conf, total_signal = 0, 0
         strategies = [
             self.sma_crossover(close_prices),
             self.rsi_analysis(close_prices),
             self.bollinger_bands(close_prices),
             self.volume_spike(volumes, close_prices)
         ]
-        for strategy in strategies:
-            results.append(strategy)
-            total_signal += strategy["signal"] * strategy["confidence"]
-            total_confidence += strategy["confidence"]
-        final_signal = total_signal / total_confidence if total_confidence > 0 else 0
-        if final_signal > 0.3:
-            action = "CALL"
-        elif final_signal < -0.3:
-            action = "PUT"
-        else:
-            action = "HOLD"
-        return {
-            "action": action,
-            "final_signal": round(final_signal, 4),
-            "strategies_results": results,
-            "strength": round(abs(final_signal), 4)
-        }
+        for s in strategies:
+            results.append(s)
+            total_signal += s["signal"] * s["confidence"]
+            total_conf += s["confidence"]
+        final = total_signal / total_conf if total_conf > 0 else 0
+        action = "CALL" if final > 0.3 else "PUT" if final < -0.3 else "HOLD"
+        return {"action": action, "final_signal": round(final, 4), "strategies_results": results, "strength": round(abs(final), 4)}
