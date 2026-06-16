@@ -93,4 +93,4 @@ class TradingStrategies:
             "final_signal": round(final_signal, 4),
             "strategies_results": results,
             "strength": round(abs(final_signal), 4)
-                   }
+        }
