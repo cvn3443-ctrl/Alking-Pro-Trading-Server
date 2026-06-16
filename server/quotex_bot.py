@@ -5,8 +5,6 @@ from selenium.webdriver.support import expected_conditions as EC
 import time
 import logging
 from typing import Dict, List, Optional, Tuple
-import pandas as pd
-import numpy as np
 
 from strategies import TradingStrategies
 from config import config
