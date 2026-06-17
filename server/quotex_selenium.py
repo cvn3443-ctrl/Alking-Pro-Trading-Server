@@ -25,6 +25,8 @@ class QuotexSelenium:
         
     def init_driver(self):
         options = uc.ChromeOptions()
+        # تحديد موقع Chrome الذي تم تثبيته في Dockerfile (هذا هو التعديل)
+        options.binary_location = "/usr/bin/google-chrome"
         options.add_argument('--headless=new')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
@@ -34,6 +36,7 @@ class QuotexSelenium:
         options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36')
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
+        
         self.driver = uc.Chrome(options=options)
         self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
             'source': '''
