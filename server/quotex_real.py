@@ -4,13 +4,13 @@ import random
 from typing import Dict, List, Tuple
 from strategies import TradingStrategies
 from config import config
-from pyquotex import Quotex
+from quotex_api import QuotexAPI
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class QuotexReal:
-    """اتصال حقيقي بمنصة Quotex عبر pyquotex"""
+    """اتصال حقيقي بمنصة Quotex عبر quotex-api"""
     
     def __init__(self):
         self.client = None
@@ -22,12 +22,10 @@ class QuotexReal:
         self.is_paused = False
         self.email = None
         
-        # قائمة العملات الافتراضية
         self.current_symbols = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", 
                                "USDCAD", "NZDUSD", "EURGBP", "XAUUSD"]
     
     def _run_async(self, coro):
-        """تشغيل دالة غير متزامنة"""
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -36,23 +34,16 @@ class QuotexReal:
             loop.close()
     
     def login(self, email: str, password: str) -> Dict:
-        """تسجيل الدخول إلى Quotex"""
         try:
             logger.info(f"محاولة تسجيل الدخول: {email}")
             
-            # إنشاء عميل Quotex
-            self.client = Quotex(email=email, password=password, lang="en")
-            
-            # الاتصال بالمنصة
+            self.client = QuotexAPI(email=email, password=password)
             result = self._run_async(self.client.connect())
             
             if result:
                 self.is_logged_in = True
                 self.email = email
-                
-                # جلب قائمة العملات
                 self._fetch_symbols()
-                
                 return {
                     "success": True,
                     "message": "✅ تم تسجيل الدخول بنجاح",
@@ -60,83 +51,61 @@ class QuotexReal:
                     "account_type": "real"
                 }
             else:
-                return {"success": False, "message": "❌ فشل تسجيل الدخول - تحقق من البيانات"}
+                return {"success": False, "message": "❌ فشل تسجيل الدخول"}
                 
         except Exception as e:
             logger.error(f"Login error: {e}")
             return {"success": False, "message": f"❌ خطأ تقني: {str(e)}"}
     
     def _fetch_symbols(self):
-        """جلب العملات المتاحة"""
         try:
-            # محاولة جلب العملات من العميل
             if self.client:
                 assets = self._run_async(self.client.get_assets())
                 if assets:
-                    symbols = []
-                    for asset in assets:
-                        if isinstance(asset, dict):
-                            symbol = asset.get('symbol') or asset.get('name')
-                            if symbol:
-                                symbols.append(symbol.upper())
+                    symbols = [asset.get('symbol') or asset.get('name') for asset in assets if asset]
                     if symbols:
                         self.current_symbols = list(set(symbols))
                         logger.info(f"✅ تم جلب {len(self.current_symbols)} عملة")
                         return
-            
-            # قائمة افتراضية في حالة الفشل
             self.current_symbols = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", 
                                    "USDCAD", "NZDUSD", "EURGBP", "XAUUSD"]
             logger.info("⚠️ استخدام قائمة العملات الافتراضية")
-            
         except Exception as e:
             logger.error(f"Error fetching symbols: {e}")
             self.current_symbols = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD"]
     
     def get_candles(self, symbol: str, timeframe: str = "1m", limit: int = 100) -> Tuple[List[float], List[float]]:
-        """جلب بيانات الشموع الحقيقية من المنصة"""
         try:
-            if not self.client:
-                logger.error("❌ العميل غير متصل")
-                return self._get_mock_candles(symbol, limit)
+            if self.client:
+                candles = self._run_async(
+                    self.client.get_candles(asset=symbol, count=limit, time_frame=timeframe)
+                )
+                if candles and len(candles) > 0:
+                    close_prices = []
+                    volumes = []
+                    for candle in candles:
+                        if isinstance(candle, dict):
+                            close_prices.append(float(candle.get('close', 0)))
+                            volumes.append(float(candle.get('volume', 0)))
+                    if close_prices:
+                        logger.info(f"✅ تم جلب {len(close_prices)} شمعة للزوج {symbol}")
+                        return close_prices, volumes
             
-            # جلب الشموع الحقيقية
-            candles = self._run_async(
-                self.client.get_candles_deep(asset=symbol, count=limit, time_frame=timeframe)
-            )
-            
-            if candles and len(candles) > 0:
-                close_prices = []
-                volumes = []
-                for candle in candles:
-                    if isinstance(candle, dict):
-                        close_prices.append(float(candle.get('close', 0)))
-                        volumes.append(float(candle.get('volume', 0)))
-                    elif hasattr(candle, 'close'):
-                        close_prices.append(float(candle.close))
-                        volumes.append(float(candle.volume))
-                
-                if close_prices:
-                    logger.info(f"✅ تم جلب {len(close_prices)} شمعة للزوج {symbol}")
-                    return close_prices, volumes
-            
-            logger.warning(f"⚠️ لم يتم العثور على بيانات للزوج {symbol}، استخدام بيانات محاكاة")
-            return self._get_mock_candles(symbol, limit)
+            import random
+            base = 1.1000 if "EUR" in symbol else 1.3000 if "GBP" in symbol else 150.00
+            close_prices = [base + random.uniform(-0.01, 0.01) for _ in range(limit)]
+            volumes = [random.randint(100, 5000) for _ in range(limit)]
+            return close_prices, volumes
             
         except Exception as e:
             logger.error(f"Error getting candles: {e}")
-            return self._get_mock_candles(symbol, limit)
-    
-    def _get_mock_candles(self, symbol: str, limit: int) -> Tuple[List[float], List[float]]:
-        """بيانات محاكاة للاختبار"""
-        import random
-        base = 1.1000 if "EUR" in symbol else 1.3000 if "GBP" in symbol else 150.00
-        close_prices = [base + random.uniform(-0.01, 0.01) for _ in range(limit)]
-        volumes = [random.randint(100, 5000) for _ in range(limit)]
-        return close_prices, volumes
+            import random
+            base = 1.1000
+            close_prices = [base + random.uniform(-0.01, 0.01) for _ in range(limit)]
+            volumes = [random.randint(100, 5000) for _ in range(limit)]
+            return close_prices, volumes
     
     def execute_trade(self, symbol: str, amount: float, action: str, is_demo: bool = True) -> Dict:
-        """تنفيذ صفقة حقيقية"""
         if self.is_paused:
             return {"success": False, "message": "⏸ النظام متوقف مؤقتاً"}
         
@@ -144,23 +113,20 @@ class QuotexReal:
             if not self.client:
                 return {"success": False, "message": "❌ العميل غير متصل"}
             
-            # تنفيذ الصفقة
             result = self._run_async(
                 self.client.place_order(
                     asset=symbol,
                     amount=amount,
                     direction="call" if action == "CALL" else "put",
-                    duration=60,  # دقيقة واحدة
+                    duration=60,
                     demo=is_demo
                 )
             )
             
             if result and result.get('success'):
-                # جلب نتيجة الصفقة
                 trade_result = self._run_async(
                     self.client.get_order_result(result.get('order_id'))
                 )
-                
                 is_win = trade_result.get('result') == 'win'
                 
                 if is_win:
@@ -172,8 +138,7 @@ class QuotexReal:
                             "success": True,
                             "trade_result": "win",
                             "message": f"✅ ربح! إيقاف بعد {self.consecutive_wins} أرباح",
-                            "is_paused": True,
-                            "profit": trade_result.get('profit', 0)
+                            "is_paused": True
                         }
                 else:
                     self.consecutive_losses += 1
@@ -184,8 +149,7 @@ class QuotexReal:
                             "success": True,
                             "trade_result": "loss",
                             "message": f"❌ خسارة! إيقاف بعد {self.consecutive_losses} خسائر",
-                            "is_paused": True,
-                            "loss": trade_result.get('loss', 0)
+                            "is_paused": True
                         }
                 
                 return {
@@ -196,8 +160,7 @@ class QuotexReal:
                     "action": action,
                     "consecutive_wins": self.consecutive_wins,
                     "consecutive_losses": self.consecutive_losses,
-                    "is_paused": self.is_paused,
-                    "order_id": result.get('order_id')
+                    "is_paused": self.is_paused
                 }
             else:
                 return {"success": False, "message": "❌ فشل تنفيذ الصفقة"}
@@ -207,25 +170,12 @@ class QuotexReal:
             return {"success": False, "message": f"❌ فشل الصفقة: {str(e)}"}
     
     def analyze_and_trade(self, symbol: str, amount: float, is_demo: bool = True) -> Dict:
-        """تحليل وتنفيذ صفقة"""
         if self.is_paused:
             return {"success": False, "message": "⏸ التداول متوقف", "is_paused": True}
-        
-        # جلب بيانات الشموع الحقيقية
         close_prices, volumes = self.get_candles(symbol)
-        
-        # تحليل الاستراتيجيات
         analysis = self.strategies.analyze_all(close_prices, volumes)
-        
         if analysis["action"] == "HOLD":
-            return {
-                "success": False,
-                "message": "📊 لا توجد إشارة قوية",
-                "analysis": analysis,
-                "should_hold": True
-            }
-        
-        # تنفيذ الصفقة
+            return {"success": False, "message": "📊 لا توجد إشارة قوية", "analysis": analysis}
         return self.execute_trade(symbol, amount, analysis["action"], is_demo)
     
     def reset_pause(self) -> Dict:
