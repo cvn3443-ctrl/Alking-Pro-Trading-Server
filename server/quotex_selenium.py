@@ -1,8 +1,10 @@
-import undetected_chromedriver as uc
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
+from webdriver_manager.chrome import ChromeDriverManager
 import time
 import logging
 import random
@@ -24,7 +26,7 @@ class QuotexSelenium:
         self.is_paused = False
 
     def init_driver(self):
-        options = uc.ChromeOptions()
+        options = webdriver.ChromeOptions()
         options.add_argument('--headless=new')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
@@ -35,20 +37,15 @@ class QuotexSelenium:
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
 
-        # الحل النهائي: تحديد مسار Chrome مباشرة عند إنشاء السائق
-        self.driver = uc.Chrome(
-            options=options,
-            browser_executable_path='/usr/bin/google-chrome'  # هذا السطر هو الحل
-        )
+        # استخدام webdriver-manager لتحميل ChromeDriver تلقائياً
+        service = Service(ChromeDriverManager().install())
+        self.driver = webdriver.Chrome(service=service, options=options)
 
-        self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-            'source': '''
-                Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-                Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
-                window.chrome = {runtime: {}};
-            '''
-        })
-        logger.info("✅ Chrome driver initialized")
+        # إخفاء علامات الأتمتة
+        self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        self.driver.execute_script("Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]})")
+
+        logger.info("✅ Chrome driver initialized with webdriver-manager")
         return self.driver
 
     def login(self, email: str, password: str) -> Dict:
@@ -58,12 +55,14 @@ class QuotexSelenium:
             logger.info(f"Opening {config.QUOTEX_URL}")
             self.driver.get(config.QUOTEX_URL)
             time.sleep(10)
+
             try:
                 close_btn = self.driver.find_element(By.CSS_SELECTOR, "[class*='close']")
                 close_btn.click()
                 time.sleep(1)
             except:
                 pass
+
             wait = WebDriverWait(self.driver, 60)
             login_btn = None
             for selector in ["//button[contains(text(), 'Sign In')]", "//button[contains(text(), 'Log In')]", "//a[contains(@href, 'login')]"]:
@@ -73,23 +72,29 @@ class QuotexSelenium:
                         break
                 except:
                     continue
+
             if not login_btn:
                 return {"success": False, "message": "❌ لم يتم العثور على زر تسجيل الدخول"}
+
             ActionChains(self.driver).move_to_element(login_btn).click().perform()
             time.sleep(3)
+
             email_input = wait.until(EC.presence_of_element_located((By.NAME, "email")))
             email_input.clear()
             for char in email:
                 email_input.send_keys(char)
                 time.sleep(0.05)
+
             password_input = self.driver.find_element(By.NAME, "password")
             password_input.clear()
             for char in password:
                 password_input.send_keys(char)
                 time.sleep(0.05)
+
             submit_btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
             ActionChains(self.driver).move_to_element(submit_btn).click().perform()
             time.sleep(8)
+
             current_url = self.driver.current_url
             if "dashboard" in current_url.lower() or "trading" in current_url.lower():
                 self.is_logged_in = True
@@ -105,6 +110,7 @@ class QuotexSelenium:
                 if "invalid" in page_source.lower() or "wrong" in page_source.lower():
                     return {"success": False, "message": "❌ البريد أو كلمة السر غير صحيحة"}
                 return {"success": False, "message": "❌ فشل تسجيل الدخول - يرجى المحاولة مرة أخرى"}
+
         except Exception as e:
             logger.error(f"Login error: {e}")
             return {"success": False, "message": f"❌ خطأ تقني: {str(e)}"}
