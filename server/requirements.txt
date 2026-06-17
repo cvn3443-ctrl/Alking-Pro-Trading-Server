@@ -3,4 +3,4 @@ uvicorn==0.27.0
 requests==2.31.0
 setuptools
 python-dotenv==1.0.0
-pyquotex==0.1.0
+quotex-api
