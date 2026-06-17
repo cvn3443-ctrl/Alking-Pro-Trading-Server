@@ -22,7 +22,7 @@ class QuotexSelenium:
         self.consecutive_wins = 0
         self.consecutive_losses = 0
         self.is_paused = False
-        
+
     def init_driver(self):
         options = uc.ChromeOptions()
         options.add_argument('--headless=new')
@@ -34,13 +34,9 @@ class QuotexSelenium:
         options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36')
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
-        
-        # تحديد مسار Chrome مباشرة عند إنشاء السائق
-        self.driver = uc.Chrome(
-            options=options,
-            browser_executable_path='/usr/bin/google-chrome'
-        )
-        
+
+        self.driver = uc.Chrome(options=options)
+
         self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
             'source': '''
                 Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
@@ -50,7 +46,7 @@ class QuotexSelenium:
         })
         logger.info("✅ Chrome driver initialized")
         return self.driver
-    
+
     def login(self, email: str, password: str) -> Dict:
         try:
             if not self.driver:
@@ -108,7 +104,7 @@ class QuotexSelenium:
         except Exception as e:
             logger.error(f"Login error: {e}")
             return {"success": False, "message": f"❌ خطأ تقني: {str(e)}"}
-    
+
     def _fetch_symbols(self):
         try:
             time.sleep(5)
@@ -127,7 +123,7 @@ class QuotexSelenium:
         except Exception as e:
             logger.error(f"Error fetching symbols: {e}")
             self.current_symbols = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD"]
-    
+
     def get_candles(self, symbol: str, timeframe: str = "1m", limit: int = 50) -> Tuple[List[float], List[float]]:
         try:
             import random
@@ -150,7 +146,7 @@ class QuotexSelenium:
             close_prices = [base + random.uniform(-0.01, 0.01) for _ in range(limit)]
             volumes = [random.randint(100, 5000) for _ in range(limit)]
             return close_prices, volumes
-    
+
     def execute_trade(self, symbol: str, amount: float, action: str, is_demo: bool = True) -> Dict:
         if self.is_paused:
             return {"success": False, "message": "⏸ النظام متوقف مؤقتاً"}
@@ -177,7 +173,7 @@ class QuotexSelenium:
         except Exception as e:
             logger.error(f"Trade execution error: {e}")
             return {"success": False, "message": f"❌ فشل الصفقة: {str(e)}"}
-    
+
     def analyze_and_trade(self, symbol: str, amount: float, is_demo: bool = True) -> Dict:
         if self.is_paused:
             return {"success": False, "message": "⏸ التداول متوقف", "is_paused": True}
@@ -186,13 +182,13 @@ class QuotexSelenium:
         if analysis["action"] == "HOLD":
             return {"success": False, "message": "📊 لا توجد إشارة قوية", "analysis": analysis}
         return self.execute_trade(symbol, amount, analysis["action"], is_demo)
-    
+
     def reset_pause(self) -> Dict:
         self.is_paused = False
         self.consecutive_wins = 0
         self.consecutive_losses = 0
         return {"success": True, "message": "تم إعادة تشغيل التداول"}
-    
+
     def get_status(self) -> Dict:
         return {
             "is_logged_in": self.is_logged_in,
@@ -203,7 +199,7 @@ class QuotexSelenium:
             "max_losses_before_pause": config.MAX_CONSECUTIVE_LOSSES,
             "available_symbols": self.current_symbols[:20] if self.current_symbols else []
         }
-    
+
     def close(self):
         if self.driver:
             self.driver.quit()
