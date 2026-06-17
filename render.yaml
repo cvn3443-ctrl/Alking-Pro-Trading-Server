@@ -5,3 +5,4 @@ services:
     repo: https://github.com/cvn3443-ctrl/Alking-Pro-Trading-Server
     plan: free
     region: frankfurt
+    dockerfilePath: ./Dockerfile
