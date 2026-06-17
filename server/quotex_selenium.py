@@ -35,7 +35,11 @@ class QuotexSelenium:
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
 
-        self.driver = uc.Chrome(options=options)
+        # الحل النهائي: تحديد مسار Chrome مباشرة عند إنشاء السائق
+        self.driver = uc.Chrome(
+            options=options,
+            browser_executable_path='/usr/bin/google-chrome'  # هذا السطر هو الحل
+        )
 
         self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
             'source': '''
