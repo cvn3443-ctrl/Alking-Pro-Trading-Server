@@ -25,6 +25,8 @@ class QuotexSelenium:
 
     def init_driver(self):
         options = uc.ChromeOptions()
+        # تحديد مسار Chrome (تم التعديل هنا)
+        options.binary_location = "/usr/bin/google-chrome"
         options.add_argument('--headless=new')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
@@ -35,11 +37,7 @@ class QuotexSelenium:
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
 
-        # تحديد مسار Chrome مباشرة
-        self.driver = uc.Chrome(
-            options=options,
-            browser_executable_path='/usr/bin/google-chrome'
-        )
+        self.driver = uc.Chrome(options=options)
 
         self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
             'source': '''
