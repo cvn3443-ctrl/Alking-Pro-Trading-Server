@@ -25,7 +25,7 @@ class QuotexSelenium:
 
     def init_driver(self):
         options = uc.ChromeOptions()
-        # تحديد مسار Chrome (تم التعديل هنا)
+        # تحديد مسار Chrome
         options.binary_location = "/usr/bin/google-chrome"
         options.add_argument('--headless=new')
         options.add_argument('--no-sandbox')
@@ -34,7 +34,8 @@ class QuotexSelenium:
         options.add_argument('--window-size=1366,768')
         options.add_argument('--disable-blink-features=AutomationControlled')
         options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36')
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        # تم تعديل هذا السطر
+        options.add_experimental_option("excludeSwitches", ["enable-logging"])
         options.add_experimental_option('useAutomationExtension', False)
 
         self.driver = uc.Chrome(options=options)
