@@ -1,4 +1,5 @@
-import undetected_chromedriver as uc
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -24,8 +25,7 @@ class QuotexSelenium:
         self.is_paused = False
 
     def init_driver(self):
-        options = uc.ChromeOptions()
-        # تحديد مسار Chrome
+        options = webdriver.ChromeOptions()
         options.binary_location = "/usr/bin/google-chrome"
         options.add_argument('--headless=new')
         options.add_argument('--no-sandbox')
@@ -34,19 +34,16 @@ class QuotexSelenium:
         options.add_argument('--window-size=1366,768')
         options.add_argument('--disable-blink-features=AutomationControlled')
         options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36')
-        # تم حذف excludeSwitches بالكامل
-        options.add_experimental_option('useAutomationExtension', False)
 
-        self.driver = uc.Chrome(options=options)
+        # استخدام Service مع ChromeDriver المثبت
+        service = Service(executable_path='/usr/local/bin/chromedriver')
+        self.driver = webdriver.Chrome(service=service, options=options)
 
-        self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-            'source': '''
-                Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-                Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
-                window.chrome = {runtime: {}};
-            '''
-        })
-        logger.info("✅ Chrome driver initialized")
+        # إخفاء علامات الأتمتة
+        self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        self.driver.execute_script("Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]})")
+
+        logger.info("✅ Chrome driver initialized (Selenium)")
         return self.driver
 
     def login(self, email: str, password: str) -> Dict:
